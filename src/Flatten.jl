@@ -210,7 +210,7 @@ function __reconstruct_expr(node::TypeNode{<:U}, use::Type{U}, ignore::Type) whe
         :(data[n], n+1)
     else
         # if field is flattenable, then take from data, otherwise, use accessor on current object
-        :(flattentrait($(node.parent.type),Val{$(QuoteNode(node.name))}) ? (data[n],n+1) : ($(_accessor_expr(node.parent, node)), n))
+        :(ifelse(flattentrait($(node.parent.type),Val{$(QuoteNode(node.name))}), (data[n],n+1), ($(_accessor_expr(node.parent, node)), n)))
     end
 end
 # Case 4: Abstract type whose fields are unknown at compile-time. Here we fall back to a runtime invocation of _reconstruct.
@@ -226,12 +226,11 @@ function _reconstruct_expr(node::TypeNode{T}, ::Type{U}, ::Type{I}) where {T,U,I
         accessor_expr = _accessor_expr(node, child)
         name = gensym("arg")
         child_expr = quote
-            ($name, n) =
-                if flattentrait($T, Val{$(QuoteNode(child.name))})
-                    $flattened_expr
-                else
-                    ($accessor_expr, n)
-                end
+            if flattentrait($T, Val{$(QuoteNode(child.name))})
+                ($name, n) = $flattened_expr
+            else
+                ($name, n) = ($accessor_expr, n)
+            end
         end
         push!(expr.args, child_expr)
         push!(argnames, name)
